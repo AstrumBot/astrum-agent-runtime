@@ -1,3 +1,48 @@
+FROM ubuntu:24.04 AS capx-builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+COPY versions /tmp/runtime-versions
+
+RUN set -eux; \
+    set -a; source /tmp/runtime-versions/tool-versions.env; set +a; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl build-essential pkg-config libssl-dev; \
+    case "$(dpkg --print-architecture)" in \
+        amd64) \
+            rust_target='x86_64-unknown-linux-gnu'; \
+            rustup_sha="${RUSTUP_INIT_X86_64_SHA256}"; \
+            ;; \
+        arm64) \
+            rust_target='aarch64-unknown-linux-gnu'; \
+            rustup_sha="${RUSTUP_INIT_AARCH64_SHA256}"; \
+            ;; \
+        *) \
+            echo "Unsupported architecture: $(dpkg --print-architecture)" >&2; \
+            exit 1; \
+            ;; \
+    esac; \
+    curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-delay 2 --retry-connrefused \
+        -o /tmp/rustup-init \
+        "https://static.rust-lang.org/rustup/archive/${RUSTUP_INIT_VERSION}/${rust_target}/rustup-init"; \
+    echo "${rustup_sha}  /tmp/rustup-init" | sha256sum -c -; \
+    chmod +x /tmp/rustup-init; \
+    export RUSTUP_HOME=/root/.rustup CARGO_HOME=/root/.cargo PATH=/root/.cargo/bin:${PATH}; \
+    /tmp/rustup-init -y --profile minimal --default-toolchain "${RUST_VERSION}"; \
+    curl --fail --show-error --silent --location --proto '=https' --tlsv1.2 --retry 5 --retry-delay 2 --retry-connrefused \
+        -o /tmp/capx.tar.gz \
+        "https://codeload.github.com/JungHoonGhae/capacities-cli/tar.gz/refs/tags/v${CAPX_VERSION}"; \
+    echo "${CAPX_TARBALL_SHA256}  /tmp/capx.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/capx.tar.gz -C /tmp; \
+    capx_src="$(find /tmp -maxdepth 1 -mindepth 1 -type d -name 'capacities-cli-*' | head -n 1)"; \
+    test -n "${capx_src}"; \
+    cargo install --locked --path "${capx_src}" --root /opt/capx; \
+    /opt/capx/bin/capx --version | grep -Fx "capx ${CAPX_VERSION}"; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /tmp/runtime-versions /tmp/rustup-init /tmp/capx.tar.gz "${capx_src}" /root/.cargo/registry /root/.cargo/git
+
 FROM ubuntu:24.04
 
 LABEL org.opencontainers.image.title="astrum-agent-runtime" \
@@ -237,6 +282,8 @@ RUN set -eux; \
         ln -sf /root/.local/bin/officecli /usr/local/bin/officecli; \
     fi; \
     officecli --version
+
+COPY --from=capx-builder /opt/capx/bin/capx /usr/local/bin/capx
 
 COPY verify-runtime.sh /usr/local/bin/verify-runtime
 RUN chmod +x /usr/local/bin/verify-runtime \

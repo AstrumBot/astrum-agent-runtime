@@ -28,7 +28,7 @@ echo "== runtime flavor =="
 printf '%s\n' "$flavor"
 
 echo "== base commands =="
-for cmd in printenv envsubst timeout flock stdbuf script git git-lfs gh rg aria2c tmux rsync 7z zip unzip unrar rclone ffmpeg ffprobe yt-dlp convert identify exiftool oxipng duckdb psql mysql redis-cli sqlite3 pandoc jq yq fd officecli mmdc; do
+for cmd in printenv envsubst timeout flock stdbuf script git git-lfs gh rg aria2c tmux rsync 7z zip unzip unrar rclone ffmpeg ffprobe yt-dlp convert identify exiftool oxipng duckdb psql mysql redis-cli sqlite3 pandoc jq yq fd officecli mmdc capx; do
   command -v "$cmd" >/dev/null
   printf '%-14s %s\n' "$cmd" "$(command -v "$cmd")"
 done
@@ -49,6 +49,7 @@ expect_exact duckdb "$(duckdb --version | awk '{print $1}' | trim_version)" "${D
 expect_exact hadolint "$(hadolint --version | awk '{print $NF}' | trim_version)" "${HADOLINT_VERSION}"
 expect_exact websocat "$(websocat --version | awk '{print $2}' | trim_version)" "${WEBSOCAT_VERSION}"
 expect_exact oxipng "$(oxipng --version | awk '{print $2}' | trim_version)" "${OXIPNG_VERSION}"
+expect_exact capx "$(capx --version | awk '{print $2}' | trim_version)" "${CAPX_VERSION}"
 expect_exact aws "$(aws --version 2>&1 | awk -F'[ /]' '{print $2}' | trim_version)" "${AWSCLI_VERSION}"
 expect_exact pnpm "$(pnpm --version | trim_version)" "11.1.1"
 expect_exact yarn "$(yarn --version | trim_version)" "1.22.22"
